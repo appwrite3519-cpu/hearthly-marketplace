@@ -1,90 +1,182 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import ItemCard from "@/components/ItemCard";
-import SafetyBanner from "@/components/SafetyBanner";
-import { CATEGORIES, FEATURED_IDS } from "@/lib/data";
-import { getListings } from "@/lib/store";
+import { CATEGORIES } from "@/lib/data";
+import { getListings, getSession } from "@/lib/store";
+
+const CHIPS = [
+  { id: "all", label: "All" },
+  { id: "new", label: "Newly listed" },
+  { id: "negotiable", label: "Negotiable" },
+  { id: "nearby", label: "Nearby" }
+];
 
 export default function HomePage() {
-  const [featured, setFeatured] = useState([]);
-  const [latest, setLatest] = useState([]);
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("all");
+  const [chip, setChip] = useState("all");
+  const [listings, setListings] = useState([]);
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
-    const all = getListings().filter((i) => i.status !== "hidden");
-    setFeatured(all.filter((i) => FEATURED_IDS.includes(i.id)).slice(0, 4));
-    setLatest(all.slice(0, 8));
+    setListings(getListings().filter((item) => item.status !== "hidden"));
+    setSession(getSession());
   }, []);
 
+  function submitSearch(event) {
+    event.preventDefault();
+    const q = query.trim();
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (category !== "all") params.set("category", category);
+    router.push(params.toString() ? `/browse?${params}` : "/browse");
+  }
+
+  const feed = useMemo(() => {
+    let rows = listings.filter((item) => item.status !== "sold");
+    if (category !== "all") rows = rows.filter((item) => item.category === category);
+    if (query.trim()) {
+      const needle = query.trim().toLowerCase();
+      rows = rows.filter(
+        (item) =>
+          item.title.toLowerCase().includes(needle) ||
+          item.description.toLowerCase().includes(needle) ||
+          (item.neighborhood || "").toLowerCase().includes(needle) ||
+          item.city.toLowerCase().includes(needle)
+      );
+    }
+    if (chip === "negotiable") rows = rows.filter((item) => item.negotiable);
+    if (chip === "nearby" && session?.id) {
+      const mine = listings.find((item) => item.sellerId === session.id);
+      const city = mine?.city;
+      if (city) rows = rows.filter((item) => item.city === city);
+    }
+    if (chip === "new") {
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      rows = rows.filter((item) => new Date(item.createdAt).getTime() >= weekAgo);
+    }
+    return [...rows].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [listings, category, chip, query, session]);
+
   return (
-    <div>
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-14 md:grid-cols-2 md:py-20">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b85c38]">
-            Classifieds. Not checkout.
-          </p>
-          <h1 className="mt-4 text-5xl leading-[1.05] md:text-6xl">
-            Chat about the price. Meet in public. Pay when you have seen it.
-          </h1>
-          <p className="mt-5 max-w-md text-lg leading-7 text-[#6b6458]">
-            Hearthly is where buyers and sellers find each other. Negotiate in
-            chat, pick a busy place, inspect the item, then settle between yourselves.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/browse" className="btn btn-primary">Browse nearby</Link>
-            <Link href="/listings/new" className="btn btn-dark">Post an item</Link>
-          </div>
-          <div className="mt-8">
-            <SafetyBanner />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=80" alt="Sofa" className="h-64 w-full rounded-3xl object-cover md:h-80" />
-          <img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80" alt="Phone" className="mt-8 h-64 w-full rounded-3xl object-cover md:h-80" />
-        </div>
-      </section>
-
-      <section className="border-y border-[#ddd4c6] bg-[#ece4d6]/60">
-        <div className="mx-auto grid max-w-6xl gap-6 px-5 py-10 md:grid-cols-4">
-          {[
-            ["01", "Post or browse", "Sellers list an item with photos, area and an asking price."],
-            ["02", "Chat & negotiate", "A buyer opens a thread. Price is settled in the conversation."],
-            ["03", "Meet in public", "Agree a mall, market front or busy square — daylight only."],
-            ["04", "Inspect, then pay", "Check the item. If it is right, pay each other and take it home."]
-          ].map(([n, t, d]) => (
-            <div key={n}>
-              <p className="text-xs tracking-[0.2em] text-[#b85c38]">{n}</p>
-              <h3 className="mt-2 text-2xl">{t}</h3>
-              <p className="mt-2 text-sm leading-6 text-[#6b6458]">{d}</p>
+    <div className="bg-[#fffdf8]">
+      <div className="sticky top-[57px] z-30 border-b border-[#eee6d8] bg-[#fffdf8]/95 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-3">
+          <form onSubmit={submitSearch} className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-full border border-[#1c1914] bg-white px-4 py-2.5">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search sofas, phones, mixers…"
+                className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[#9a9388]"
+                aria-label="Search listings"
+              />
+              <span className="hidden shrink-0 px-1 text-[#9a9388] sm:inline" aria-hidden>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M4 7h3l2-3h6l2 3h3v12H4V7z" />
+                  <circle cx="12" cy="13" r="3.2" />
+                </svg>
+              </span>
             </div>
-          ))}
+            <button
+              type="submit"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1c1914] text-white"
+              aria-label="Search"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.2-3.2" />
+              </svg>
+            </button>
+          </form>
         </div>
-      </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-14">
-        <p className="text-xs uppercase tracking-[0.18em] text-[#6b6458]">Categories</p>
-        <h2 className="mt-1 text-4xl">What people are listing</h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="no-scrollbar mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 pb-2 text-[15px] font-medium text-[#8a8378]">
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`shrink-0 pb-2 ${category === "all" ? "border-b-2 border-[#1c1914] text-[#1c1914]" : ""}`}
+          >
+            All
+          </button>
           {CATEGORIES.map((cat) => (
-            <Link key={cat.id} href={`/browse?category=${cat.id}`} className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-5 hover:border-[#b85c38]">
-              <h3 className="text-2xl">{cat.name}</h3>
-              <p className="mt-2 text-sm leading-6 text-[#6b6458]">{cat.blurb}</p>
-            </Link>
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setCategory(cat.id)}
+              className={`shrink-0 pb-2 ${category === cat.id ? "border-b-2 border-[#1c1914] text-[#1c1914]" : ""}`}
+            >
+              {cat.name}
+            </button>
           ))}
         </div>
-      </section>
+      </div>
 
-      <section className="mx-auto max-w-6xl px-5 pb-16">
-        <div className="mb-8 flex items-end justify-between">
-          <h2 className="text-4xl">Near you</h2>
-          <Link href="/browse" className="text-sm font-semibold text-[#8f4126]">See all →</Link>
+      <div className="bg-[#f8e6d4] text-[#5a3a28]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 overflow-x-auto px-4 py-2.5 text-[13px] font-medium">
+          <p className="flex min-w-0 items-center gap-4 whitespace-nowrap">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-[#2f7a3a]">✓</span> Meet in a public place
+            </span>
+            <span className="text-[#d7b89a]">|</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-[#2f7a3a]">✓</span> Inspect first, pay in person
+            </span>
+          </p>
+          <Link href="/safety" className="shrink-0 text-[#8f4126]">
+            Rules ›
+          </Link>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {(featured.length ? featured : latest.slice(0, 4)).map((item) => (
-            <ItemCard key={item.id} item={item} />
+      </div>
+
+      <div className="mx-auto max-w-6xl px-4 pt-3">
+        <div className="no-scrollbar flex gap-5 overflow-x-auto text-[14px] font-medium text-[#8a8378]">
+          {CHIPS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setChip(item.id)}
+              className={`shrink-0 pb-2 ${chip === item.id ? "border-b-2 border-[#1c1914] text-[#1c1914]" : ""}`}
+            >
+              {item.id === "new" ? (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>⚡</span> {item.label}
+                </span>
+              ) : item.id === "negotiable" ? (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>★</span> {item.label}
+                </span>
+              ) : item.id === "nearby" ? (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>📍</span> {item.label}
+                </span>
+              ) : (
+                item.label
+              )}
+            </button>
           ))}
         </div>
+      </div>
+
+      <section className="mx-auto max-w-6xl px-3 pb-16 pt-3 sm:px-4">
+        {feed.length === 0 ? (
+          <p className="px-2 py-16 text-center text-[#6b6458]">
+            No listings match that search yet.{" "}
+            <Link href="/listings/new" className="font-semibold text-[#8f4126]">
+              Post one
+            </Link>
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            {feed.map((item) => (
+              <ItemCard key={item.id} item={item} compact />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
