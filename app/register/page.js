@@ -10,9 +10,10 @@ export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", phone: "", city: "Lagos", password: "" });
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
     setError("");
     if (!form.name || !form.email || !form.password) {
@@ -23,11 +24,14 @@ export default function RegisterPage() {
       setError("Use at least 6 characters for the password.");
       return;
     }
+    setBusy(true);
     try {
-      registerUser(form);
+      await registerUser(form);
       router.push("/dashboard");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -48,7 +52,7 @@ export default function RegisterPage() {
         </select>
         <input className="field" type="password" placeholder="Password" value={form.password} onChange={(e) => set("password", e.target.value)} />
         {error && <p className="text-sm text-[#8f4126]">{error}</p>}
-        <button className="btn btn-primary w-full" type="submit">Create account</button>
+        <button className="btn btn-primary w-full" type="submit" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
       </form>
     </div>
   );

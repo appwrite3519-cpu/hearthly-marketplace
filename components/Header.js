@@ -13,7 +13,13 @@ export default function Header() {
   useEffect(() => {
     const s = getSession();
     setSession(s);
-    setUnreadHint(s ? conversationsForUser(s.id).length : 0);
+    if (!s) {
+      setUnreadHint(0);
+      return;
+    }
+    conversationsForUser(s.id)
+      .then((rows) => setUnreadHint(rows.length))
+      .catch(() => setUnreadHint(0));
   }, [pathname]);
 
   return (

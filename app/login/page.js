@@ -11,14 +11,19 @@ function LoginInner() {
   const [email, setEmail] = useState("amaka@hearthly.demo");
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
+    setBusy(true);
+    setError("");
     try {
-      loginUser(email, password);
+      await loginUser(email, password);
       router.push(params.get("next") || "/dashboard");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -34,7 +39,7 @@ function LoginInner() {
         <input className="field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
         <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
         {error && <p className="text-sm text-[#8f4126]">{error}</p>}
-        <button className="btn btn-primary w-full" type="submit">Continue</button>
+        <button className="btn btn-primary w-full" type="submit" disabled={busy}>{busy ? "Signing in…" : "Continue"}</button>
       </form>
       <p className="mt-4 text-xs text-[#6b6458]">Seller demo: ada@hearthly.demo / demo1234</p>
     </div>
