@@ -9,6 +9,7 @@ import { getListings } from "@/lib/store";
 function BrowseInner() {
   const params = useSearchParams();
   const [listings, setListings] = useState([]);
+  const [error, setError] = useState("");
   const [q, setQ] = useState(params.get("q") || "");
   const [category, setCategory] = useState(params.get("category") || "all");
   const [city, setCity] = useState("all");
@@ -16,7 +17,7 @@ function BrowseInner() {
   const [sort, setSort] = useState("newest");
 
   useEffect(() => {
-    setListings(getListings());
+    getListings().then(setListings).catch((err) => setError(err.message));
   }, []);
   useEffect(() => {
     const fromUrl = params.get("category");
@@ -48,9 +49,7 @@ function BrowseInner() {
     <div className="mx-auto max-w-6xl px-5 py-10">
       <p className="text-xs uppercase tracking-[0.18em] text-[#6b6458]">Local listings</p>
       <h1 className="mt-2 text-5xl">Browse and start a chat</h1>
-      <p className="mt-3 max-w-2xl text-[#6b6458]">
-        Filter by city and category. Open a listing to negotiate — there is no cart and no online payment.
-      </p>
+      <p className="mt-3 max-w-2xl text-[#6b6458]">Filter by city and category. Open a listing to negotiate — there is no cart and no online payment.</p>
       <div className="mt-8 grid gap-3 rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4 md:grid-cols-5">
         <input className="field md:col-span-2" placeholder="Search phones, sofas, fans…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -74,10 +73,11 @@ function BrowseInner() {
           <option value="price-desc">Price: high to low</option>
         </select>
       </div>
+      {error && <p className="mt-6 text-[#8f4126]">{error}</p>}
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((item) => <ItemCard key={item.id} item={item} />)}
       </div>
-      {filtered.length === 0 && <p className="mt-16 text-center text-[#6b6458]">No items match those filters yet.</p>}
+      {filtered.length === 0 && !error && <p className="mt-16 text-center text-[#6b6458]">No items match those filters yet.</p>}
     </div>
   );
 }
