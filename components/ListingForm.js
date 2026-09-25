@@ -22,6 +22,7 @@ export default function ListingForm({ listingId }) {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const s = getSession();
@@ -31,22 +32,23 @@ export default function ListingForm({ listingId }) {
     }
     setSession(s);
     if (listingId) {
-      const existing = getListing(listingId);
-      if (!existing || existing.sellerId !== s.id) {
-        router.replace("/dashboard");
-        return;
-      }
-      setForm({
-        title: existing.title,
-        category: existing.category,
-        condition: existing.condition,
-        price: existing.price,
-        negotiable: Boolean(existing.negotiable),
-        city: existing.city,
-        neighborhood: existing.neighborhood || "",
-        image: existing.image,
-        description: existing.description
-      });
+      getListing(listingId).then((existing) => {
+        if (!existing || existing.sellerId !== s.id) {
+          router.replace("/dashboard");
+          return;
+        }
+        setForm({
+          title: existing.title,
+          category: existing.category,
+          condition: existing.condition,
+          price: existing.price,
+          negotiable: Boolean(existing.negotiable),
+          city: existing.city,
+          neighborhood: existing.neighborhood || "",
+          image: existing.image,
+          description: existing.description
+        });
+      }).catch((err) => setError(err.message));
     }
   }, [listingId, router]);
 
@@ -54,26 +56,30 @@ export default function ListingForm({ listingId }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
     if (!form.title || !form.price || !form.description) {
       setError("Title, asking price and description are required.");
       return;
     }
-    const image =
-      form.image.trim() ||
-      "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=1400&q=80";
-    const id = saveListing(
-      {
+    const image = String(form.image || "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=1400&q=80";
+    setBusy(true);
+    setError("");
+    try {
+      const existing = listingId ? await getListing(listingId) : null;
+      const id = await saveListing({
         id: listingId,
         ...form,
         price: Number(form.price),
         image,
-        status: listingId ? getListing(listingId)?.status || "active" : "active"
-      },
-      session.id
-    );
-    router.push(`/item/${id}`);
+        status: existing?.status || "active"
+      }, session.id);
+      router.push(`/item/${id}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!session) return <div className="px-5 py-16">Loading form…</div>;
@@ -82,26 +88,18 @@ export default function ListingForm({ listingId }) {
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-4 px-5 py-10">
       <p className="text-xs uppercase tracking-[0.18em] text-[#b85c38]">Post locally</p>
       <h1 className="text-4xl">{listingId ? "Edit listing" : "Post an item"}</h1>
-      <p className="text-sm text-[#6b6458]">
-        Buyers will chat with you, then you pick a public place to meet. No checkout on Hearthly.
-      </p>
+      <p className="text-sm text-[#6b6458]">Buyers will chat with you, then you pick a public place to meet. No checkout on Hearthly.</p>
       <input className="field" placeholder="Title" value={form.title} onChange={(e) => set("title", e.target.value)} />
       <div className="grid gap-3 md:grid-cols-2">
         <select className="field" value={form.category} onChange={(e) => set("category", e.target.value)}>
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select className="field" value={form.condition} onChange={(e) => set("condition", e.target.value)}>
-          {CONDITIONS.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input className="field" type="number" min="0" placeholder="Asking price (NGN)" value={form.price} onChange={(e) => set("price", e.target.value)} />
         <select className="field" value={form.city} onChange={(e) => set("city", e.target.value)}>
-          {CITIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          {CITIES.map((c) => <option key={c}>{c}</option>)}
         </select>
       </div>
       <label className="flex items-center gap-2 text-sm text-[#3b362f]">
@@ -110,14 +108,9 @@ export default function ListingForm({ listingId }) {
       </label>
       <input className="field" placeholder="Area / neighbourhood" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
       <input className="field" placeholder="Photo URL" value={form.image} onChange={(e) => set("image", e.target.value)} />
-      <textarea
-        className="field min-h-36"
-        placeholder="Honest description: wear, what is included, and a public place you are happy to meet."
-        value={form.description}
-        onChange={(e) => set("description", e.target.value)}
-      />
+      <textarea className="field min-h-36" placeholder="Honest description: wear, what is included, and a public place you are happy to meet." value={form.description} onChange={(e) => set("description", e.target.value)} />
       {error && <p className="text-sm text-[#8f4126]">{error}</p>}
-      <button className="btn btn-primary" type="submit">{listingId ? "Save changes" : "Publish listing"}</button>
+      <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
     </form>
   );
 }
