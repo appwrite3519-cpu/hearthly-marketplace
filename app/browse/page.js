@@ -15,7 +15,9 @@ function BrowseInner() {
   const [condition, setCondition] = useState("all");
   const [sort, setSort] = useState("newest");
 
-  useEffect(() => { setListings(getListings()); }, []);
+  useEffect(() => {
+    setListings(getListings());
+  }, []);
   useEffect(() => {
     const fromUrl = params.get("category");
     if (fromUrl) setCategory(fromUrl);
@@ -28,7 +30,12 @@ function BrowseInner() {
     if (condition !== "all") rows = rows.filter((i) => i.condition === condition);
     if (q.trim()) {
       const needle = q.toLowerCase();
-      rows = rows.filter((i) => i.title.toLowerCase().includes(needle) || i.description.toLowerCase().includes(needle));
+      rows = rows.filter(
+        (i) =>
+          i.title.toLowerCase().includes(needle) ||
+          i.description.toLowerCase().includes(needle) ||
+          (i.neighborhood || "").toLowerCase().includes(needle)
+      );
     }
     return [...rows].sort((a, b) => {
       if (sort === "price-asc") return a.price - b.price;
@@ -39,11 +46,13 @@ function BrowseInner() {
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">
-      <p className="text-xs uppercase tracking-[0.18em] text-[#6b6458]">Marketplace</p>
-      <h1 className="mt-2 text-5xl">Browse household finds</h1>
-      <p className="mt-3 max-w-2xl text-[#6b6458]">Filter by room, city and condition. Every listing is posted by a seller from the Hearthly studio.</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-[#6b6458]">Local listings</p>
+      <h1 className="mt-2 text-5xl">Browse and start a chat</h1>
+      <p className="mt-3 max-w-2xl text-[#6b6458]">
+        Filter by city and category. Open a listing to negotiate — there is no cart and no online payment.
+      </p>
       <div className="mt-8 grid gap-3 rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4 md:grid-cols-5">
-        <input className="field md:col-span-2" placeholder="Search sofas, mixers, rugs…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="field md:col-span-2" placeholder="Search phones, sofas, fans…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="all">All categories</option>
           {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
