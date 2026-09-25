@@ -19,16 +19,39 @@ export default function DashboardPage() {
   const [session, setSession] = useState(null);
   const [listings, setListings] = useState([]);
   const [chats, setChats] = useState([]);
+  const [partners, setPartners] = useState({});
+  const [error, setError] = useState("");
 
-  function refresh() {
+  async function refresh() {
     const s = getSession();
     if (!s) {
-      router.replace("/login");
+      router.replace("/login?next=/dashboard");
       return;
     }
     setSession(s);
-    setListings(getListings().filter((i) => i.sellerId === s.id));
-    setChats(conversationsForUser(s.id));
+    try {
+      const [all, rows] = await Promise.all([
+        getListings(),
+        conversationsForUser(s.id)
+      ]);
+      const mine = (all || []).filter((item) => item.sellerId === s.id);
+      setListings(mine);
+      setChats(rows || []);
+      const names = {};
+      await Promise.all(
+        (rows || []).slice(0, 6).map(async (c) => {
+          const otherId = c.buyerId === s.id ? c.sellerId : c.buyerId;
+          const other = await getUser(otherId).catch(() => null);
+          names[otherId] = other?.name || "Buyer";
+        })
+      );
+      setPartners(names);
+      setError("");
+    } catch (err) {
+      setError(err.message || "Could not load your listings.");
+      setListings([]);
+      setChats([]);
+    }
   }
 
   useEffect(() => {
@@ -59,6 +82,7 @@ export default function DashboardPage() {
           <button className="btn btn-ghost" onClick={() => { logout(); router.push("/"); }}>Sign out</button>
         </div>
       </div>
+      {error && <p className="mt-6 text-[#8f4126]">{error}</p>}
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {[["Live listings", stats.live], ["Sold", stats.sold], ["Open chats", stats.chats]].map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-5">
@@ -82,16 +106,16 @@ export default function DashboardPage() {
                 <Link href={`/item/${item.id}`} className="btn btn-ghost text-sm">View</Link>
                 <Link href={`/listings/${item.id}/edit`} className="btn btn-ghost text-sm">Edit</Link>
                 {item.status !== "sold" && (
-                  <button className="btn btn-ghost text-sm" onClick={() => { setListingStatus(item.id, session.id, "sold"); refresh(); }}>
+                  <button className="btn btn-ghost text-sm" onClick={async () => { await setListingStatus(item.id, session.id, "sold"); refresh(); }}>
                     Mark sold
                   </button>
                 )}
                 {item.status === "sold" && (
-                  <button className="btn btn-ghost text-sm" onClick={() => { setListingStatus(item.id, session.id, "active"); refresh(); }}>
+                  <button className="btn btn-ghost text-sm" onClick={async () => { await setListingStatus(item.id, session.id, "active"); refresh(); }}>
                     Relist
                   </button>
                 )}
-                <button className="btn btn-ghost text-sm text-[#8f4126]" onClick={() => { if (confirm("Remove this listing?")) { deleteListing(item.id, session.id); refresh(); } }}>
+                <button className="btn btn-ghost text-sm text-[#8f4126]" onClick={async () => { if (confirm("Remove this listing?")) { await deleteListing(item.id, session.id); refresh(); } }}>
                   Delete
                 </button>
               </div>
@@ -104,14 +128,13 @@ export default function DashboardPage() {
         <div className="mt-4 space-y-3">
           {chats.length === 0 && <p className="text-[#6b6458]">No chats yet. They appear when someone messages a listing.</p>}
           {chats.slice(0, 6).map((c) => {
-            const listing = getListings().find((l) => l.id === c.listingId);
+            const listing = listings.find((l) => l.id === c.listingId);
             const otherId = c.buyerId === session.id ? c.sellerId : c.buyerId;
-            const other = getUser(otherId);
             return (
               <Link key={c.id} href={`/messages/${c.id}`} className="block rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-5 hover:border-[#b85c38]">
                 <p className="font-medium">{listing?.title || "Listing"}</p>
                 <p className="text-sm text-[#6b6458]">
-                  With {firstName(other?.name)} {c.meetupPlace ? `· Meet at ${c.meetupPlace}` : ""}
+                  With {firstName(partners[otherId])} {c.meetupPlace ? `· Meet at ${c.meetupPlace}` : ""}
                 </p>
               </Link>
             );

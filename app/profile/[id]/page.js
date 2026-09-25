@@ -13,14 +13,39 @@ export default function ProfilePage() {
   const [listings, setListings] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [rating, setRating] = useState(null);
+  const [authors, setAuthors] = useState({});
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const found = getUser(id);
-    setUser(found);
-    setListings(getListings().filter((item) => item.sellerId === id && item.status !== "hidden"));
-    setReviews(reviewsForUser(id));
-    setRating(averageRating(id));
+    (async () => {
+      try {
+        const [found, all, rows, avg] = await Promise.all([
+          getUser(id),
+          getListings(),
+          reviewsForUser(id),
+          averageRating(id)
+        ]);
+        setUser(found);
+        setListings((all || []).filter((item) => item.sellerId === id && item.status !== "hidden"));
+        setReviews(rows || []);
+        setRating(avg);
+        const names = {};
+        await Promise.all(
+          (rows || []).map(async (row) => {
+            const from = await getUser(row.fromId).catch(() => null);
+            names[row.fromId] = from?.name || "Member";
+          })
+        );
+        setAuthors(names);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoaded(true);
+      }
+    })();
   }, [id]);
+
+  if (!loaded) return <div className="px-5 py-16">Loading profile…</div>;
 
   if (!user) {
     return (
@@ -46,15 +71,12 @@ export default function ProfilePage() {
         <h2 className="text-3xl">Ratings after meetups</h2>
         <div className="mt-4 space-y-3">
           {reviews.length === 0 && <p className="text-[#6b6458]">No ratings yet.</p>}
-          {reviews.map((row) => {
-            const from = getUser(row.fromId);
-            return (
-              <article key={row.id} className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-5">
-                <p className="text-sm text-[#6b6458]">{stars(row.rating)} · {firstName(from?.name)} · {formatDate(row.createdAt)}</p>
-                <p className="mt-2">{row.comment}</p>
-              </article>
-            );
-          })}
+          {reviews.map((row) => (
+            <article key={row.id} className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-5">
+              <p className="text-sm text-[#6b6458]">{stars(row.rating)} · {firstName(authors[row.fromId])} · {formatDate(row.createdAt)}</p>
+              <p className="mt-2">{row.comment}</p>
+            </article>
+          ))}
         </div>
       </section>
       <Link href="/browse" className="mt-10 inline-block text-sm text-[#8f4126]">Back to listings →</Link>
