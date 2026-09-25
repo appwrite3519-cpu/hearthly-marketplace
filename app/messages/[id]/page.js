@@ -20,7 +20,8 @@ import {
 export default function ConversationPage() {
   const { id } = useParams();
   const router = useRouter();
-  const endRef = useRef(null);
+  const listRef = useRef(null);
+  const stickToBottom = useRef(true);
   const [session, setSession] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [listing, setListing] = useState(null);
@@ -36,6 +37,18 @@ export default function ConversationPage() {
   const [loaded, setLoaded] = useState(false);
   const [sending, setSending] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+
+  function scrollToLatest() {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function onListScroll() {
+    const el = listRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   async function load(s) {
     const convo = await getConversation(id);
@@ -62,14 +75,16 @@ export default function ConversationPage() {
     setTime((prev) => prev || convo.meetupTime || "");
     markConversationRead(s.id, convo.id);
     setLoaded(true);
+    stickToBottom.current = true;
   }
 
-  async function refreshMessages(s) {
+  async function refreshMessages(s, forceBottom = false) {
     const rows = await messagesForConversation(id);
     setMessages(rows || []);
     markConversationRead(s.id, id);
     const convo = await getConversation(id).catch(() => null);
     if (convo) setConversation(convo);
+    if (forceBottom) stickToBottom.current = true;
   }
 
   useEffect(() => {
@@ -92,8 +107,10 @@ export default function ConversationPage() {
   }, [id, router]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
+    if (stickToBottom.current) {
+      requestAnimationFrame(scrollToLatest);
+    }
+  }, [messages]);
 
   const spots = useMemo(() => MEETUP_SPOTS[listing?.city] || [], [listing]);
 
@@ -117,7 +134,7 @@ export default function ConversationPage() {
     try {
       await sendMessage({ conversationId: conversation.id, senderId: session.id, text: draft });
       setDraft("");
-      await refreshMessages(session);
+      await refreshMessages(session, true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -132,7 +149,7 @@ export default function ConversationPage() {
       await setMeetup(conversation.id, session.id, { place, time });
       setFlash("Meetup shared in chat.");
       setToolsOpen(false);
-      await refreshMessages(session);
+      await refreshMessages(session, true);
     } catch (err) {
       setError(err.message);
     }
@@ -157,8 +174,8 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-58px)] max-w-xl flex-col bg-[#ece5dd]">
-      <div className="sticky top-[57px] z-20 flex items-center gap-3 border-b border-[#d7ccc0] bg-[#f4efe6] px-3 py-2">
+    <div className="mx-auto flex h-full max-w-xl flex-col bg-[#ece5dd]">
+      <div className="flex shrink-0 items-center gap-3 border-b border-[#d7ccc0] bg-[#f4efe6] px-3 py-2">
         <Link href="/messages" className="grid h-9 w-9 place-items-center text-xl text-[#1c1914]">‹</Link>
         <img src={listing.image} alt="" className="h-10 w-10 rounded-full object-cover bg-[#ddd4c6]" />
         <div className="min-w-0 flex-1">
@@ -171,7 +188,7 @@ export default function ConversationPage() {
       </div>
 
       {toolsOpen && (
-        <div className="space-y-3 border-b border-[#d7ccc0] bg-[#fffdf8] px-4 py-3">
+        <div className="shrink-0 space-y-3 border-b border-[#d7ccc0] bg-[#fffdf8] px-4 py-3">
           <form onSubmit={onMeetup} className="space-y-2">
             <select className="field" value={place} onChange={(e) => setPlace(e.target.value)}>
               <option value="">Public meetup place</option>
@@ -195,7 +212,7 @@ export default function ConversationPage() {
         </div>
       )}
 
-      <div className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+      <div ref={listRef} onScroll={onListScroll} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {messages.map((m) => {
           const mine = m.senderId === session.id;
           const system = m.kind === "system" || m.senderId === "system";
@@ -216,27 +233,28 @@ export default function ConversationPage() {
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
 
-      <form onSubmit={onSend} className="sticky bottom-0 z-20 flex items-end gap-2 bg-[#f0ebe3] px-2 py-2">
-        <input
-          className="min-h-11 flex-1 rounded-full border-0 bg-white px-4 py-2.5 outline-none"
-          placeholder="Message"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        <button
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1fa855] text-white disabled:opacity-60"
-          type="submit"
-          disabled={sending || !draft.trim()}
-          aria-label="Send"
-        >
-          ➤
-        </button>
+      <form onSubmit={onSend} className="shrink-0 bg-[#f0ebe3] px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="flex items-end gap-2">
+          <input
+            className="min-h-11 flex-1 rounded-full border-0 bg-white px-4 py-2.5 outline-none"
+            placeholder="Message"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <button
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1fa855] text-white disabled:opacity-60"
+            type="submit"
+            disabled={sending || !draft.trim()}
+            aria-label="Send"
+          >
+            ➤
+          </button>
+        </div>
+        {error && <p className="px-2 pt-1 text-sm text-[#8f4126]">{error}</p>}
+        {flash && <p className="px-2 pt-1 text-sm text-[#3f4a3a]">{flash}</p>}
       </form>
-      {error && <p className="bg-[#f0ebe3] px-4 pb-2 text-sm text-[#8f4126]">{error}</p>}
-      {flash && <p className="bg-[#f0ebe3] px-4 pb-2 text-sm text-[#3f4a3a]">{flash}</p>}
     </div>
   );
 }

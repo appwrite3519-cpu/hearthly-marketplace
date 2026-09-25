@@ -1,7 +1,6 @@
 import { Fraunces, Outfit } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import AppShell from "@/components/AppShell";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -23,9 +22,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${display.variable} ${body.variable} min-h-screen antialiased`}>
-        <Header />
-        <main className="min-h-[70vh]">{children}</main>
-        <Footer />
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
