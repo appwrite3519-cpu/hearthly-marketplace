@@ -1,5 +1,5 @@
-import ListingForm from "@/components/ListingForm";
+import { redirect } from "next/navigation";
 
-export default function NewListingPage() {
-  return <ListingForm />;
+export default function SellerNewListingRedirect() {
+  redirect("/listings/new");
 }

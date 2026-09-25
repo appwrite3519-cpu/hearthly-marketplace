@@ -7,32 +7,29 @@ export default function Footer() {
         <div className="md:col-span-2">
           <p className="serif text-2xl">Hearthly</p>
           <p className="mt-3 max-w-md text-sm leading-6 text-[#6b6458]">
-            A calm marketplace for neat, fairly used household items. Give a sofa,
-            a mixer or a wardrobe another good home — without the landfill.
+            A local classifieds board. Chat, agree a public place, inspect the
+            item, then pay each other directly. Hearthly never takes the money.
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6b6458]">
-            Explore
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6b6458]">Explore</p>
           <div className="mt-3 flex flex-col gap-2 text-sm">
             <Link href="/browse">All listings</Link>
-            <Link href="/how-it-works">How it works</Link>
-            <Link href="/seller/register">Become a seller</Link>
+            <Link href="/how-it-works">How a deal works</Link>
+            <Link href="/safety">Meetup safety</Link>
           </div>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6b6458]">
-            Studio
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6b6458]">Account</p>
           <div className="mt-3 flex flex-col gap-2 text-sm">
-            <Link href="/seller/login">Seller login</Link>
-            <Link href="/seller/dashboard">Manage listings</Link>
+            <Link href="/login">Log in</Link>
+            <Link href="/register">Create account</Link>
+            <Link href="/listings/new">Post an item</Link>
           </div>
         </div>
       </div>
       <div className="border-t border-[#ddd4c6] px-5 py-4 text-center text-xs text-[#6b6458]">
-        Demo marketplace. Listings persist in your browser. Demo sellers: ada@hearthly.demo / demo1234
+        Demo. Data stays in your browser. Try ada@hearthly.demo / demo1234 or amaka@hearthly.demo / demo1234
       </div>
     </footer>
   );

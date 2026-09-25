@@ -1,9 +1,13 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import ListingForm from "@/components/ListingForm";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-export default function EditListingPage() {
+export default function SellerEditRedirect() {
   const { id } = useParams();
-  return <ListingForm listingId={id} />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(`/listings/${id}/edit`);
+  }, [id, router]);
+  return <div className="px-5 py-16">Redirecting…</div>;
 }

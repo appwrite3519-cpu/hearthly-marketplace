@@ -14,9 +14,9 @@ const body = Outfit({
 });
 
 export const metadata = {
-  title: "Hearthly — Neat & fairly used household finds",
+  title: "Hearthly — Chat, meet, inspect, then pay",
   description:
-    "Buy and sell well-kept furniture, kitchenware, appliances and home decor. Sellers manage listings from the Hearthly studio."
+    "Local classifieds where buyers and sellers negotiate in chat, meet in a public place, inspect the item, and settle payment themselves."
 };
 
 export default function RootLayout({ children }) {

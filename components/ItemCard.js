@@ -28,7 +28,10 @@ export default function ItemCard({ item }) {
           {categoryLabel(item.category)} · {item.city}
         </p>
         <h3 className="mt-1 text-lg leading-snug">{item.title}</h3>
-        <p className="mt-2 font-semibold text-[#8f4126]">{formatMoney(item.price)}</p>
+        <p className="mt-2 font-semibold text-[#8f4126]">
+          {formatMoney(item.price)}
+          {item.negotiable ? <span className="ml-2 text-xs font-medium text-[#6b6458]">Negotiable</span> : null}
+        </p>
       </div>
     </Link>
   );
