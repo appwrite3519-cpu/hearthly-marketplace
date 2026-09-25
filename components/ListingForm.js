@@ -153,7 +153,7 @@ export default function ListingForm({ listingId }) {
 
       <div className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
         <p className="text-sm font-medium">Item photo</p>
-        <p className="mt-1 text-xs text-[#6b6458]">Take a picture or choose one from your phone. Max 3MB.</p>
+        <p className="mt-1 text-xs text-[#6b6458]">Choose from your gallery or take a new picture. Max 3MB.</p>
         {form.image ? (
           <img src={form.image} alt="Listing preview" className="mt-3 h-48 w-full rounded-xl object-cover" />
         ) : (
@@ -161,17 +161,29 @@ export default function ListingForm({ listingId }) {
             No photo yet
           </div>
         )}
-        <label className="btn btn-dark mt-3 inline-flex cursor-pointer">
-          {uploading ? "Uploading…" : form.image ? "Replace photo" : "Upload photo"}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            disabled={uploading || busy}
-            onChange={onPickPhoto}
-          />
-        </label>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <label className="btn btn-dark cursor-pointer">
+            {uploading ? "Uploading…" : "Choose from gallery"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploading || busy}
+              onChange={onPickPhoto}
+            />
+          </label>
+          <label className="btn btn-ghost cursor-pointer">
+            Take photo
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              disabled={uploading || busy}
+              onChange={onPickPhoto}
+            />
+          </label>
+        </div>
       </div>
 
       <textarea className="field min-h-36" placeholder="Honest description: wear, what is included, and a public place you are happy to meet." value={form.description} onChange={(e) => set("description", e.target.value)} />
