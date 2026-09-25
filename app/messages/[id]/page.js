@@ -7,6 +7,7 @@ import { MEETUP_SPOTS } from "@/lib/data";
 import { firstName, formatChatTime, formatMoney } from "@/lib/format";
 import {
   addReview,
+  countUnreadConversations,
   getConversation,
   getListing,
   getSession,
@@ -37,6 +38,7 @@ export default function ConversationPage() {
   const [loaded, setLoaded] = useState(false);
   const [sending, setSending] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [unreadChats, setUnreadChats] = useState(0);
 
   function scrollToLatest() {
     const el = listRef.current;
@@ -85,6 +87,7 @@ export default function ConversationPage() {
     const convo = await getConversation(id).catch(() => null);
     if (convo) setConversation(convo);
     if (forceBottom) stickToBottom.current = true;
+    countUnreadConversations(s.id).then(setUnreadChats).catch(() => {});
   }
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function ConversationPage() {
       setError(err.message || "Could not open this chat.");
       setLoaded(true);
     });
+    countUnreadConversations(s.id).then(setUnreadChats).catch(() => {});
     const timer = setInterval(() => {
       const current = getSession();
       if (!current) return;
@@ -107,14 +111,14 @@ export default function ConversationPage() {
   }, [id, router]);
 
   useEffect(() => {
-    if (stickToBottom.current) {
-      requestAnimationFrame(scrollToLatest);
-    }
+    if (stickToBottom.current) requestAnimationFrame(scrollToLatest);
   }, [messages]);
 
   const spots = useMemo(() => MEETUP_SPOTS[listing?.city] || [], [listing]);
 
-  if (!loaded) return <div className="px-5 py-16">Opening chat…</div>;
+  if (!loaded) {
+    return <div className="grid h-[100dvh] place-items-center px-5">Opening chat…</div>;
+  }
 
   if (!session || !conversation || !listing) {
     return (
@@ -174,7 +178,25 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-xl flex-col bg-[#ece5dd]">
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-xl flex-col bg-[#ece5dd]">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#ddd4c6] bg-[#f4efe6] px-3 py-2">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-[#3f4a3a] text-xs font-semibold text-[#f4efe6]">H</span>
+          <span className="serif text-lg">Hearthly</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/messages" className="btn btn-ghost relative px-3 py-1.5 text-sm">
+            Chats
+            {unreadChats > 0 && (
+              <span className="ml-1 grid min-w-5 place-items-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+                {unreadChats}
+              </span>
+            )}
+          </Link>
+          <Link href="/dashboard" className="btn btn-dark px-3 py-1.5 text-sm">My listings</Link>
+        </div>
+      </div>
+
       <div className="flex shrink-0 items-center gap-3 border-b border-[#d7ccc0] bg-[#f4efe6] px-3 py-2">
         <Link href="/messages" className="grid h-9 w-9 place-items-center text-xl text-[#1c1914]">‹</Link>
         <img src={listing.image} alt="" className="h-10 w-10 rounded-full object-cover bg-[#ddd4c6]" />
@@ -188,7 +210,7 @@ export default function ConversationPage() {
       </div>
 
       {toolsOpen && (
-        <div className="shrink-0 space-y-3 border-b border-[#d7ccc0] bg-[#fffdf8] px-4 py-3">
+        <div className="shrink-0 space-y-3 overflow-y-auto border-b border-[#d7ccc0] bg-[#fffdf8] px-4 py-3">
           <form onSubmit={onMeetup} className="space-y-2">
             <select className="field" value={place} onChange={(e) => setPlace(e.target.value)}>
               <option value="">Public meetup place</option>
@@ -235,7 +257,7 @@ export default function ConversationPage() {
         })}
       </div>
 
-      <form onSubmit={onSend} className="shrink-0 bg-[#f0ebe3] px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+      <form onSubmit={onSend} className="shrink-0 border-t border-[#d7ccc0] bg-[#f0ebe3] px-2 pt-2 pb-[calc(0.6rem+env(safe-area-inset-bottom))]">
         <div className="flex items-end gap-2">
           <input
             className="min-h-11 flex-1 rounded-full border-0 bg-white px-4 py-2.5 outline-none"
