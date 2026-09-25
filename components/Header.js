@@ -11,15 +11,21 @@ export default function Header() {
   const [unreadChats, setUnreadChats] = useState(0);
 
   useEffect(() => {
-    const s = getSession();
-    setSession(s);
-    if (!s) {
-      setUnreadChats(0);
-      return;
+    let timer;
+    function tick() {
+      const s = getSession();
+      setSession(s);
+      if (!s) {
+        setUnreadChats(0);
+        return;
+      }
+      countUnreadConversations(s.id)
+        .then(setUnreadChats)
+        .catch(() => setUnreadChats(0));
     }
-    countUnreadConversations(s.id)
-      .then(setUnreadChats)
-      .catch(() => setUnreadChats(0));
+    tick();
+    timer = setInterval(tick, 8000);
+    return () => clearInterval(timer);
   }, [pathname]);
 
   return (

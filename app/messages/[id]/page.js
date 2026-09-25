@@ -58,10 +58,18 @@ export default function ConversationPage() {
     setListing(item);
     setOther(person);
     setMessages(rows || []);
-    setPlace(convo.meetupPlace || "");
-    setTime(convo.meetupTime || "");
+    setPlace((prev) => prev || convo.meetupPlace || "");
+    setTime((prev) => prev || convo.meetupTime || "");
     markConversationRead(s.id, convo.id);
     setLoaded(true);
+  }
+
+  async function refreshMessages(s) {
+    const rows = await messagesForConversation(id);
+    setMessages(rows || []);
+    markConversationRead(s.id, id);
+    const convo = await getConversation(id).catch(() => null);
+    if (convo) setConversation(convo);
   }
 
   useEffect(() => {
@@ -75,6 +83,12 @@ export default function ConversationPage() {
       setError(err.message || "Could not open this chat.");
       setLoaded(true);
     });
+    const timer = setInterval(() => {
+      const current = getSession();
+      if (!current) return;
+      refreshMessages(current).catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
   }, [id, router]);
 
   useEffect(() => {
@@ -103,7 +117,7 @@ export default function ConversationPage() {
     try {
       await sendMessage({ conversationId: conversation.id, senderId: session.id, text: draft });
       setDraft("");
-      await load(session);
+      await refreshMessages(session);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -118,7 +132,7 @@ export default function ConversationPage() {
       await setMeetup(conversation.id, session.id, { place, time });
       setFlash("Meetup shared in chat.");
       setToolsOpen(false);
-      await load(session);
+      await refreshMessages(session);
     } catch (err) {
       setError(err.message);
     }

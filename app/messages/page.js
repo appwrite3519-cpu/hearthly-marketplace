@@ -13,6 +13,29 @@ import {
   unreadCountForMessages
 } from "@/lib/store";
 
+async function loadInbox(userId) {
+  const chats = await conversationsForUser(userId);
+  const hydrated = await Promise.all(
+    (chats || []).map(async (c) => {
+      const [listing, other, messages] = await Promise.all([
+        getListing(c.listingId).catch(() => null),
+        getUser(c.buyerId === userId ? c.sellerId : c.buyerId).catch(() => null),
+        messagesForConversation(c.id).catch(() => [])
+      ]);
+      const last = (messages || [])[messages.length - 1] || null;
+      return {
+        ...c,
+        listing,
+        other,
+        last,
+        unread: unreadCountForMessages(userId, c.id, messages)
+      };
+    })
+  );
+  hydrated.sort((a, b) => new Date(b.last?.createdAt || b.createdAt) - new Date(a.last?.createdAt || a.createdAt));
+  return hydrated;
+}
+
 export default function MessagesPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -26,34 +49,18 @@ export default function MessagesPage() {
       return;
     }
     setSession(s);
-    (async () => {
+    let timer;
+    async function tick() {
       try {
-        const chats = await conversationsForUser(s.id);
-        const hydrated = await Promise.all(
-          (chats || []).map(async (c) => {
-            const [listing, other, messages] = await Promise.all([
-              getListing(c.listingId).catch(() => null),
-              getUser(c.buyerId === s.id ? c.sellerId : c.buyerId).catch(() => null),
-              messagesForConversation(c.id).catch(() => [])
-            ]);
-            const last = (messages || [])[messages.length - 1] || null;
-            return {
-              ...c,
-              listing,
-              other,
-              last,
-              unread: unreadCountForMessages(s.id, c.id, messages)
-            };
-          })
-        );
-        hydrated.sort((a, b) => new Date(b.last?.createdAt || b.createdAt) - new Date(a.last?.createdAt || a.createdAt));
-        setRows(hydrated);
+        setRows(await loadInbox(s.id));
         setError("");
       } catch (err) {
         setError(err.message || "Could not load chats.");
-        setRows([]);
       }
-    })();
+    }
+    tick();
+    timer = setInterval(tick, 4000);
+    return () => clearInterval(timer);
   }, [router]);
 
   if (!session) return <div className="px-5 py-16">Loading chats…</div>;
