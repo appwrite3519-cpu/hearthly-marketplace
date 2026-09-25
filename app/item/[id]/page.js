@@ -1,23 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { categoryLabel, conditionLabel, formatMoney } from "@/lib/format";
-import { addInquiry, getListing, getSeller } from "@/lib/store";
+import SafetyBanner from "@/components/SafetyBanner";
+import { MEETUP_SPOTS } from "@/lib/data";
+import { categoryLabel, conditionLabel, firstName, formatMoney, stars } from "@/lib/format";
+import { addReport, averageRating, getListing, getSession, getUser, openConversation } from "@/lib/store";
 
 export default function ItemPage() {
   const { id } = useParams();
+  const router = useRouter();
   const [item, setItem] = useState(null);
   const [seller, setSeller] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
-  const [sent, setSent] = useState(false);
+  const [rating, setRating] = useState(null);
+  const [session, setSession] = useState(null);
   const [error, setError] = useState("");
+  const [reported, setReported] = useState(false);
 
   useEffect(() => {
     const found = getListing(id);
     setItem(found);
-    if (found) setSeller(getSeller(found.sellerId));
+    setSession(getSession());
+    if (found) {
+      setSeller(getUser(found.sellerId));
+      setRating(averageRating(found.sellerId));
+    }
   }, [id]);
 
   if (!item) {
@@ -29,55 +37,94 @@ export default function ItemPage() {
     );
   }
 
-  function onSubmit(e) {
-    e.preventDefault();
+  const spots = MEETUP_SPOTS[item.city] || [];
+  const mine = session && session.id === item.sellerId;
+
+  function startChat() {
     setError("");
-    if (!form.name || !form.email || !form.message) {
-      setError("Name, email and a short message are required.");
+    if (!session) {
+      router.push(`/login?next=/item/${item.id}`);
       return;
     }
-    addInquiry({
-      listingId: item.id,
-      listingTitle: item.title,
-      sellerId: item.sellerId,
-      buyerName: form.name,
-      buyerEmail: form.email,
-      buyerPhone: form.phone,
-      message: form.message
-    });
-    setSent(true);
+    try {
+      const conversationId = openConversation({ listingId: item.id, buyerId: session.id });
+      router.push(`/messages/${conversationId}`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function report() {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    addReport({ fromId: session.id, listingId: item.id, reason: "Reported from listing page" });
+    setReported(true);
   }
 
   return (
     <div className="mx-auto grid max-w-6xl gap-10 px-5 py-10 md:grid-cols-2">
-      <img src={item.image} alt={item.title} className="w-full rounded-3xl object-cover" />
       <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#6b6458]">{categoryLabel(item.category)} · {conditionLabel(item.condition)}</p>
+        <img src={item.image} alt={item.title} className="w-full rounded-3xl object-cover" />
+        <div className="mt-4">
+          <SafetyBanner />
+        </div>
+      </div>
+      <div>
+        <p className="text-xs uppercase tracking-[0.16em] text-[#6b6458]">
+          {categoryLabel(item.category)} · {conditionLabel(item.condition)}
+        </p>
         <h1 className="mt-2 text-4xl md:text-5xl">{item.title}</h1>
-        <p className="mt-4 text-3xl font-semibold text-[#8f4126]">{formatMoney(item.price)}</p>
-        <p className="mt-2 text-sm text-[#6b6458]">{item.neighborhood ? `${item.neighborhood}, ` : ""}{item.city}{item.status === "sold" ? " · Sold" : " · Available"}</p>
+        <p className="mt-4 text-3xl font-semibold text-[#8f4126]">
+          {formatMoney(item.price)}
+          {item.negotiable ? <span className="ml-3 text-base font-medium text-[#6b6458]">Negotiable in chat</span> : null}
+        </p>
+        <p className="mt-2 text-sm text-[#6b6458]">
+          {item.neighborhood ? `${item.neighborhood}, ` : ""}{item.city}
+          {item.status === "sold" ? " · Sold" : " · Available to view"}
+        </p>
         <p className="mt-6 leading-7 text-[#3b362f]">{item.description}</p>
+
         {seller && (
-          <div className="mt-8 rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
+          <Link href={`/profile/${seller.id}`} className="mt-8 block rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4 hover:border-[#b85c38]">
             <p className="text-xs uppercase tracking-[0.16em] text-[#6b6458]">Seller</p>
-            <p className="mt-1 text-lg">{seller.name}</p>
-            <p className="text-sm text-[#6b6458]">{seller.city}</p>
+            <p className="mt-1 text-lg">{firstName(seller.name)}</p>
+            <p className="text-sm text-[#6b6458]">{seller.city} · {stars(rating)}</p>
+          </Link>
+        )}
+
+        {spots.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm font-semibold">Public places people use in {item.city}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {spots.map((spot) => (
+                <span key={spot} className="rounded-full bg-[#ece4d6] px-3 py-1 text-xs">{spot}</span>
+              ))}
+            </div>
           </div>
         )}
+
         {item.status === "sold" ? (
-          <p className="mt-8 rounded-2xl bg-[#ece4d6] px-4 py-3">This piece has already found a home.</p>
-        ) : sent ? (
-          <p className="mt-8 rounded-2xl bg-[#3f4a3a] px-4 py-4 text-[#f4efe6]">Message sent. The seller will see it in their studio.</p>
+          <p className="mt-8 rounded-2xl bg-[#ece4d6] px-4 py-3">This item has already been collected.</p>
+        ) : mine ? (
+          <div className="mt-8 flex gap-2">
+            <Link href={`/listings/${item.id}/edit`} className="btn btn-dark">Edit listing</Link>
+            <Link href="/dashboard" className="btn btn-ghost">Your listings</Link>
+          </div>
         ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-3">
-            <h2 className="text-2xl">Ask about this item</h2>
-            <input className="field" placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <input className="field" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <input className="field" placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <textarea className="field min-h-28" placeholder="When can you collect? Any questions?" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+          <div className="mt-8 space-y-3">
+            <button className="btn btn-primary" type="button" onClick={startChat}>
+              Chat to negotiate & meet
+            </button>
+            <p className="text-sm text-[#6b6458]">
+              No payment on this site. Agree a price, pick a public place, inspect, then pay the seller yourself.
+            </p>
             {error && <p className="text-sm text-[#8f4126]">{error}</p>}
-            <button className="btn btn-primary" type="submit">Send message</button>
-          </form>
+            <button className="text-xs text-[#6b6458] underline" type="button" onClick={report} disabled={reported}>
+              {reported ? "Report received" : "Report this listing"}
+            </button>
+          </div>
         )}
       </div>
     </div>
