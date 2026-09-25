@@ -26,7 +26,7 @@ export default function HomePage() {
   useEffect(() => {
     setSession(getSession());
     getListings()
-      .then((rows) => setListings(rows.filter((item) => item.status !== "hidden")))
+      .then((rows) => setListings(Array.isArray(rows) ? rows.filter((item) => item.status !== "hidden") : []))
       .catch((err) => setError(err.message));
   }, []);
 
@@ -46,10 +46,10 @@ export default function HomePage() {
       const needle = query.trim().toLowerCase();
       rows = rows.filter(
         (item) =>
-          item.title.toLowerCase().includes(needle) ||
-          item.description.toLowerCase().includes(needle) ||
-          (item.neighborhood || "").toLowerCase().includes(needle) ||
-          item.city.toLowerCase().includes(needle)
+          String(item.title || "").toLowerCase().includes(needle) ||
+          String(item.description || "").toLowerCase().includes(needle) ||
+          String(item.neighborhood || "").toLowerCase().includes(needle) ||
+          String(item.city || "").toLowerCase().includes(needle)
       );
     }
     if (chip === "negotiable") rows = rows.filter((item) => item.negotiable);

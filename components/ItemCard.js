@@ -11,9 +11,23 @@ export default function ItemCard({ item, compact = false }) {
   const [rating, setRating] = useState(null);
 
   useEffect(() => {
-    setSeller(getUser(item.sellerId));
-    setRating(averageRating(item.sellerId));
-  }, [item.sellerId]);
+    let live = true;
+    if (!item?.sellerId) return undefined;
+    Promise.all([
+      getUser(item.sellerId).catch(() => null),
+      averageRating(item.sellerId).catch(() => null)
+    ]).then(([user, score]) => {
+      if (!live) return;
+      setSeller(user);
+      const n = Number(score);
+      setRating(Number.isFinite(n) ? n : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [item?.sellerId]);
+
+  const ratingLabel = typeof rating === "number" ? rating.toFixed(1) : "New";
 
   if (compact) {
     return (
@@ -38,7 +52,7 @@ export default function ItemCard({ item, compact = false }) {
             </p>
             <div className="mt-1 flex items-center gap-1 text-[11px] text-[#6b6458]">
               <span className="tracking-tight text-[#f0a000]">★★★★★</span>
-              <span>{rating ? rating.toFixed(1) : "New"}</span>
+              <span>{ratingLabel}</span>
               <span className="text-[#c9c2b6]">·</span>
               <span className="truncate">{firstName(seller?.name) || "Seller"}</span>
             </div>
