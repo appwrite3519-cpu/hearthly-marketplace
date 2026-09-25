@@ -32,21 +32,33 @@ export default function ConversationPage() {
   const [reviewNote, setReviewNote] = useState("");
   const [flash, setFlash] = useState("");
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  function load(s) {
-    const convo = getConversation(id);
-    if (!convo) return;
+  async function load(s) {
+    const convo = await getConversation(id);
+    if (!convo) {
+      setConversation(null);
+      setLoaded(true);
+      return;
+    }
     if (s.id !== convo.buyerId && s.id !== convo.sellerId) {
       router.replace("/messages");
       return;
     }
-    setConversation(convo);
-    setListing(getListing(convo.listingId));
+    const [item, rows] = await Promise.all([
+      getListing(convo.listingId),
+      messagesForConversation(convo.id)
+    ]);
     const otherId = s.id === convo.buyerId ? convo.sellerId : convo.buyerId;
-    setOther(getUser(otherId));
-    setMessages(messagesForConversation(convo.id));
+    const person = await getUser(otherId).catch(() => null);
+    setConversation(convo);
+    setListing(item);
+    setOther(person);
+    setMessages(rows || []);
     setPlace(convo.meetupPlace || "");
     setTime(convo.meetupTime || "");
+    setLoaded(true);
   }
 
   useEffect(() => {
@@ -56,48 +68,59 @@ export default function ConversationPage() {
       return;
     }
     setSession(s);
-    load(s);
+    load(s).catch((err) => {
+      setError(err.message || "Could not open this chat.");
+      setLoaded(true);
+    });
   }, [id, router]);
 
   const spots = useMemo(() => MEETUP_SPOTS[listing?.city] || [], [listing]);
 
+  if (!loaded) return <div className="px-5 py-16">Opening chat…</div>;
+
   if (!session || !conversation || !listing) {
-    return <div className="px-5 py-16">Opening chat…</div>;
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-20 text-center">
+        <h1 className="text-4xl">Chat not found</h1>
+        {error && <p className="mt-3 text-sm text-[#8f4126]">{error}</p>}
+        <Link href="/messages" className="mt-6 inline-block text-[#8f4126]">Back to chats</Link>
+      </div>
+    );
   }
 
-  function refresh() {
-    load(session);
-  }
-
-  function onSend(e) {
+  async function onSend(e) {
     e.preventDefault();
+    if (!draft.trim() || sending) return;
     setError("");
+    setSending(true);
     try {
-      sendMessage({ conversationId: conversation.id, senderId: session.id, text: draft });
+      await sendMessage({ conversationId: conversation.id, senderId: session.id, text: draft });
       setDraft("");
-      refresh();
+      await load(session);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSending(false);
     }
   }
 
-  function onMeetup(e) {
+  async function onMeetup(e) {
     e.preventDefault();
     setError("");
     try {
-      setMeetup(conversation.id, session.id, { place, time });
+      await setMeetup(conversation.id, session.id, { place, time });
       setFlash("Meetup note added to the chat.");
-      refresh();
+      await load(session);
     } catch (err) {
       setError(err.message);
     }
   }
 
-  function onReview(e) {
+  async function onReview(e) {
     e.preventDefault();
     setError("");
     try {
-      addReview({
+      await addReview({
         fromId: session.id,
         toId: other.id,
         listingId: listing.id,
@@ -121,6 +144,9 @@ export default function ConversationPage() {
           {listing.negotiable ? " · negotiable" : ""}
         </p>
         <div className="mt-6 space-y-3 rounded-3xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
+          {messages.length === 0 && (
+            <p className="text-center text-sm text-[#6b6458]">No messages yet. Say hello and suggest a public place.</p>
+          )}
           {messages.map((m) => {
             const mine = m.senderId === session.id;
             const system = m.kind === "system" || m.senderId === "system";
@@ -141,8 +167,15 @@ export default function ConversationPage() {
           })}
         </div>
         <form onSubmit={onSend} className="mt-4 flex gap-2">
-          <input className="field" placeholder="Ask a question or offer a price…" value={draft} onChange={(e) => setDraft(e.target.value)} />
-          <button className="btn btn-primary" type="submit">Send</button>
+          <input
+            className="field"
+            placeholder="Ask a question or offer a price…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <button className="btn btn-primary" type="submit" disabled={sending}>
+            {sending ? "Sending…" : "Send"}
+          </button>
         </form>
         {error && <p className="mt-2 text-sm text-[#8f4126]">{error}</p>}
         {flash && <p className="mt-2 text-sm text-[#3f4a3a]">{flash}</p>}
