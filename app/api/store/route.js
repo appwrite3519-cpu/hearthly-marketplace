@@ -1,6 +1,8 @@
 import { actions } from "@/lib/db";
 import { isDatabaseConfigured } from "@/lib/supabaseServer";
 
+export const maxDuration = 30;
+
 export async function POST(request) {
   if (!isDatabaseConfigured()) {
     return Response.json(
@@ -31,6 +33,9 @@ export async function POST(request) {
     switch (action) {
       case "ping":
         result = await actions.ping();
+        break;
+      case "uploadListingPhoto":
+        result = await actions.uploadListingPhoto(payload);
         break;
       case "getUsers":
         result = await actions.getUsers();

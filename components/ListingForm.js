@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CATEGORIES, CITIES, CONDITIONS } from "@/lib/data";
-import { getListing, getSession, saveListing } from "@/lib/store";
+import { getListing, getSession, saveListing, uploadListingPhoto } from "@/lib/store";
 
 const EMPTY = {
   title: "",
@@ -17,12 +17,22 @@ const EMPTY = {
   description: ""
 };
 
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read that photo."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ListingForm({ listingId }) {
   const router = useRouter();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const s = getSession();
@@ -56,13 +66,46 @@ export default function ListingForm({ listingId }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  async function onPickPhoto(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !session) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Choose a photo file (jpg, png or webp).");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Photo must be under 3MB. Take or crop a smaller picture.");
+      return;
+    }
+    setUploading(true);
+    setError("");
+    try {
+      const dataUrl = await readFileAsBase64(file);
+      const url = await uploadListingPhoto({
+        sellerId: session.id,
+        fileName: file.name,
+        contentType: file.type,
+        base64: dataUrl
+      });
+      set("image", url);
+    } catch (err) {
+      setError(err.message || "Could not upload that photo.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     if (!form.title || !form.price || !form.description) {
       setError("Title, asking price and description are required.");
       return;
     }
-    const image = String(form.image || "").trim() || "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=1400&q=80";
+    if (!String(form.image || "").trim()) {
+      setError("Add a photo of the item so buyers can see it.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -71,7 +114,7 @@ export default function ListingForm({ listingId }) {
         id: listingId,
         ...form,
         price: Number(form.price),
-        image,
+        image: form.image,
         status: existing?.status || "active"
       }, session.id);
       router.push(`/item/${id}`);
@@ -107,10 +150,33 @@ export default function ListingForm({ listingId }) {
         Price is negotiable in chat
       </label>
       <input className="field" placeholder="Area / neighbourhood" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
-      <input className="field" placeholder="Photo URL" value={form.image} onChange={(e) => set("image", e.target.value)} />
+
+      <div className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
+        <p className="text-sm font-medium">Item photo</p>
+        <p className="mt-1 text-xs text-[#6b6458]">Take a picture or choose one from your phone. Max 3MB.</p>
+        {form.image ? (
+          <img src={form.image} alt="Listing preview" className="mt-3 h-48 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="mt-3 grid h-36 place-items-center rounded-xl bg-[#ece4d6] text-sm text-[#6b6458]">
+            No photo yet
+          </div>
+        )}
+        <label className="btn btn-dark mt-3 inline-flex cursor-pointer">
+          {uploading ? "Uploading…" : form.image ? "Replace photo" : "Upload photo"}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            disabled={uploading || busy}
+            onChange={onPickPhoto}
+          />
+        </label>
+      </div>
+
       <textarea className="field min-h-36" placeholder="Honest description: wear, what is included, and a public place you are happy to meet." value={form.description} onChange={(e) => set("description", e.target.value)} />
       {error && <p className="text-sm text-[#8f4126]">{error}</p>}
-      <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
+      <button className="btn btn-primary" type="submit" disabled={busy || uploading}>{busy ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
     </form>
   );
 }
