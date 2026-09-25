@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import SafetyBanner from "@/components/SafetyBanner";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MEETUP_SPOTS } from "@/lib/data";
-import { firstName, formatMoney, formatTime } from "@/lib/format";
+import { firstName, formatChatTime, formatMoney } from "@/lib/format";
 import {
   addReview,
   getConversation,
   getListing,
   getSession,
   getUser,
+  markConversationRead,
   messagesForConversation,
   sendMessage,
   setMeetup
@@ -20,6 +20,7 @@ import {
 export default function ConversationPage() {
   const { id } = useParams();
   const router = useRouter();
+  const endRef = useRef(null);
   const [session, setSession] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [listing, setListing] = useState(null);
@@ -34,6 +35,7 @@ export default function ConversationPage() {
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [sending, setSending] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   async function load(s) {
     const convo = await getConversation(id);
@@ -58,6 +60,7 @@ export default function ConversationPage() {
     setMessages(rows || []);
     setPlace(convo.meetupPlace || "");
     setTime(convo.meetupTime || "");
+    markConversationRead(s.id, convo.id);
     setLoaded(true);
   }
 
@@ -73,6 +76,10 @@ export default function ConversationPage() {
       setLoaded(true);
     });
   }, [id, router]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length]);
 
   const spots = useMemo(() => MEETUP_SPOTS[listing?.city] || [], [listing]);
 
@@ -109,7 +116,8 @@ export default function ConversationPage() {
     setError("");
     try {
       await setMeetup(conversation.id, session.id, { place, time });
-      setFlash("Meetup note added to the chat.");
+      setFlash("Meetup shared in chat.");
+      setToolsOpen(false);
       await load(session);
     } catch (err) {
       setError(err.message);
@@ -135,90 +143,86 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 lg:grid-cols-[1.4fr_0.8fr]">
-      <div>
-        <Link href="/messages" className="text-sm text-[#8f4126]">← All chats</Link>
-        <h1 className="mt-3 text-3xl">{listing.title}</h1>
-        <p className="text-sm text-[#6b6458]">
-          With {firstName(other?.name)} · asking {formatMoney(listing.price)}
-          {listing.negotiable ? " · negotiable" : ""}
-        </p>
-        <div className="mt-6 space-y-3 rounded-3xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
-          {messages.length === 0 && (
-            <p className="text-center text-sm text-[#6b6458]">No messages yet. Say hello and suggest a public place.</p>
-          )}
-          {messages.map((m) => {
-            const mine = m.senderId === session.id;
-            const system = m.kind === "system" || m.senderId === "system";
-            if (system) {
-              return (
-                <p key={m.id} className="rounded-xl bg-[#ece4d6] px-3 py-2 text-center text-xs text-[#3b362f]">
-                  {m.text}
-                </p>
-              );
-            }
-            return (
-              <div key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${mine ? "ml-auto bg-[#3f4a3a] text-[#f4efe6]" : "bg-[#ece4d6] text-[#1c1914]"}`}>
-                {m.kind === "meetup" && <p className="mb-1 text-[11px] uppercase tracking-wide opacity-80">Meetup</p>}
-                <p>{m.text}</p>
-                <p className={`mt-1 text-[11px] ${mine ? "text-[#d9d2c4]" : "text-[#6b6458]"}`}>{formatTime(m.createdAt)}</p>
-              </div>
-            );
-          })}
+    <div className="mx-auto flex min-h-[calc(100dvh-58px)] max-w-xl flex-col bg-[#ece5dd]">
+      <div className="sticky top-[57px] z-20 flex items-center gap-3 border-b border-[#d7ccc0] bg-[#f4efe6] px-3 py-2">
+        <Link href="/messages" className="grid h-9 w-9 place-items-center text-xl text-[#1c1914]">‹</Link>
+        <img src={listing.image} alt="" className="h-10 w-10 rounded-full object-cover bg-[#ddd4c6]" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold leading-tight">{firstName(other?.name)}</p>
+          <p className="truncate text-[12px] text-[#6b6458]">{listing.title} · {formatMoney(listing.price)}</p>
         </div>
-        <form onSubmit={onSend} className="mt-4 flex gap-2">
-          <input
-            className="field"
-            placeholder="Ask a question or offer a price…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <button className="btn btn-primary" type="submit" disabled={sending}>
-            {sending ? "Sending…" : "Send"}
-          </button>
-        </form>
-        {error && <p className="mt-2 text-sm text-[#8f4126]">{error}</p>}
-        {flash && <p className="mt-2 text-sm text-[#3f4a3a]">{flash}</p>}
+        <button type="button" className="text-sm font-medium text-[#8f4126]" onClick={() => setToolsOpen((v) => !v)}>
+          {toolsOpen ? "Close" : "Meetup"}
+        </button>
       </div>
-      <aside className="space-y-5">
-        <SafetyBanner />
-        <div className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-[#6b6458]">Agree a meetup</p>
-          <form onSubmit={onMeetup} className="mt-3 space-y-3">
+
+      {toolsOpen && (
+        <div className="space-y-3 border-b border-[#d7ccc0] bg-[#fffdf8] px-4 py-3">
+          <form onSubmit={onMeetup} className="space-y-2">
             <select className="field" value={place} onChange={(e) => setPlace(e.target.value)}>
-              <option value="">Choose a public place</option>
+              <option value="">Public meetup place</option>
               {spots.map((spot) => <option key={spot}>{spot}</option>)}
               <option value="Other public place">Other public place</option>
             </select>
             <input className="field" placeholder="Day and time, e.g. Sunday 3pm" value={time} onChange={(e) => setTime(e.target.value)} />
-            <button className="btn btn-dark w-full" type="submit">Drop meetup in chat</button>
+            <button className="btn btn-dark w-full" type="submit">Share meetup in chat</button>
           </form>
-          {conversation.meetupPlace && (
-            <p className="mt-3 text-sm text-[#3b362f]">
-              Current plan: {conversation.meetupPlace}
-              {conversation.meetupTime ? ` · ${conversation.meetupTime}` : ""}
-            </p>
-          )}
-        </div>
-        <div className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-[#6b6458]">After you meet</p>
-          <form onSubmit={onReview} className="mt-3 space-y-3">
+          <form onSubmit={onReview} className="space-y-2">
             <select className="field" value={rating} onChange={(e) => setRating(e.target.value)}>
-              <option value="5">5 — on time, item as described</option>
+              <option value="5">5 — on time, as described</option>
               <option value="4">4 — good</option>
               <option value="3">3 — okay</option>
               <option value="2">2 — off</option>
               <option value="1">1 — avoid</option>
             </select>
-            <textarea className="field min-h-24" placeholder="Short note about the meetup" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
+            <textarea className="field min-h-20" placeholder="After you meet, leave a short rating" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
             <button className="btn btn-ghost w-full" type="submit">Rate {firstName(other?.name)}</button>
           </form>
         </div>
-        <Link href={`/item/${listing.id}`} className="block text-sm text-[#8f4126]">Open listing →</Link>
-        <Link href={`/profile/${other?.id}`} className="block text-sm text-[#8f4126]">
-          {firstName(other?.name)}’s profile →
-        </Link>
-      </aside>
+      )}
+
+      <div className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+        {messages.map((m) => {
+          const mine = m.senderId === session.id;
+          const system = m.kind === "system" || m.senderId === "system";
+          if (system) {
+            return (
+              <p key={m.id} className="mx-auto max-w-[90%] rounded-md bg-[#ffffffaa] px-3 py-1.5 text-center text-[11px] text-[#3b362f]">
+                {m.text}
+              </p>
+            );
+          }
+          return (
+            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[82%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[15px] leading-snug shadow-sm ${mine ? "rounded-tr-none bg-[#dcf8c6]" : "rounded-tl-none bg-white"}`}>
+                {m.kind === "meetup" && <p className="mb-1 text-[11px] font-semibold text-[#1fa855]">Meetup</p>}
+                <p className="whitespace-pre-wrap">{m.text}</p>
+                <p className="mt-1 text-right text-[10px] text-[#667781]">{formatChatTime(m.createdAt)}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={endRef} />
+      </div>
+
+      <form onSubmit={onSend} className="sticky bottom-0 z-20 flex items-end gap-2 bg-[#f0ebe3] px-2 py-2">
+        <input
+          className="min-h-11 flex-1 rounded-full border-0 bg-white px-4 py-2.5 outline-none"
+          placeholder="Message"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1fa855] text-white disabled:opacity-60"
+          type="submit"
+          disabled={sending || !draft.trim()}
+          aria-label="Send"
+        >
+          ➤
+        </button>
+      </form>
+      {error && <p className="bg-[#f0ebe3] px-4 pb-2 text-sm text-[#8f4126]">{error}</p>}
+      {flash && <p className="bg-[#f0ebe3] px-4 pb-2 text-sm text-[#3f4a3a]">{flash}</p>}
     </div>
   );
 }

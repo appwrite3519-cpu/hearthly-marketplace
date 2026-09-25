@@ -3,23 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { conversationsForUser, getSession } from "@/lib/store";
+import { countUnreadConversations, getSession } from "@/lib/store";
 
 export default function Header() {
   const pathname = usePathname();
   const [session, setSession] = useState(null);
-  const [unreadHint, setUnreadHint] = useState(0);
+  const [unreadChats, setUnreadChats] = useState(0);
 
   useEffect(() => {
     const s = getSession();
     setSession(s);
     if (!s) {
-      setUnreadHint(0);
+      setUnreadChats(0);
       return;
     }
-    conversationsForUser(s.id)
-      .then((rows) => setUnreadHint(rows.length))
-      .catch(() => setUnreadHint(0));
+    countUnreadConversations(s.id)
+      .then(setUnreadChats)
+      .catch(() => setUnreadChats(0));
   }, [pathname]);
 
   return (
@@ -41,8 +41,13 @@ export default function Header() {
         <div className="flex items-center gap-2">
           {session ? (
             <>
-              <Link href="/messages" className="btn btn-ghost text-sm">
-                Chats{unreadHint ? ` (${unreadHint})` : ""}
+              <Link href="/messages" className="btn btn-ghost relative text-sm">
+                Chats
+                {unreadChats > 0 && (
+                  <span className="ml-1 grid min-w-5 place-items-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+                    {unreadChats}
+                  </span>
+                )}
               </Link>
               <Link href="/dashboard" className="btn btn-dark text-sm">My listings</Link>
             </>
