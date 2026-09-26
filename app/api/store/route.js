@@ -43,6 +43,9 @@ export async function POST(request) {
       case "getUser":
         result = await actions.getUser(payload.id);
         break;
+      case "requestSignupCode":
+        result = await actions.requestSignupCode(payload);
+        break;
       case "registerUser":
         result = await actions.registerUser(payload);
         break;
