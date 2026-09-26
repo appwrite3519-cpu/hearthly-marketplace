@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ItemCard from "@/components/ItemCard";
-import { CATEGORIES, CITIES, CONDITIONS } from "@/lib/data";
+import { CATEGORIES, CONDITIONS, STATES } from "@/lib/data";
 import { getListings } from "@/lib/store";
 
 function BrowseInner() {
@@ -49,7 +49,7 @@ function BrowseInner() {
     <div className="mx-auto max-w-6xl px-5 py-10">
       <p className="text-xs uppercase tracking-[0.18em] text-[#6b6458]">Local listings</p>
       <h1 className="mt-2 text-5xl">Browse and start a chat</h1>
-      <p className="mt-3 max-w-2xl text-[#6b6458]">Filter by city and category. Open a listing to negotiate — there is no cart and no online payment.</p>
+      <p className="mt-3 max-w-2xl text-[#6b6458]">Filter by state and category. Open a listing to negotiate — there is no cart and no online payment.</p>
       <div className="mt-8 grid gap-3 rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4 md:grid-cols-5">
         <input className="field md:col-span-2" placeholder="Search phones, sofas, fans…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -57,8 +57,8 @@ function BrowseInner() {
           {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select className="field" value={city} onChange={(e) => setCity(e.target.value)}>
-          <option value="all">All cities</option>
-          {CITIES.map((c) => <option key={c}>{c}</option>)}
+          <option value="all">All states</option>
+          {STATES.map((state) => <option key={state} value={state}>{state} State</option>)}
         </select>
         <select className="field" value={condition} onChange={(e) => setCondition(e.target.value)}>
           <option value="all">Any condition</option>
