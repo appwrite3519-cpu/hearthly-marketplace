@@ -83,6 +83,10 @@ export default function ItemPage() {
           {formatMoney(item.price)}
           {item.negotiable ? <span className="ml-3 text-base font-medium text-[#6b6458]">Negotiable in chat</span> : null}
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-[#ece4d6] px-3 py-1 text-xs">{item.hasReceipt ? "Reciept dey" : "No reciept"}</span>
+          <span className="rounded-full bg-[#ece4d6] px-3 py-1 text-xs">{item.hasCarton ? "Carton dey" : "No carton"}</span>
+        </div>
         <p className="mt-2 text-sm text-[#6b6458]">{item.neighborhood ? `${item.neighborhood}, ` : ""}{item.city}{item.status === "sold" ? " · Sold" : " · Available to view"}</p>
         <p className="mt-6 leading-7 text-[#3b362f]">{item.description}</p>
         {seller && (
