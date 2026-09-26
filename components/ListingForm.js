@@ -14,7 +14,8 @@ const EMPTY = {
   hasReceipt: false,
   hasCarton: false,
   city: "Edo",
-  neighborhood: "1st Ugbor",
+  areaChoice: "Others",
+  neighborhood: "",
   image: "",
   description: ""
 };
@@ -53,6 +54,7 @@ export default function ListingForm({ listingId }) {
         }
         const state = STATES.includes(existing.city) ? existing.city : "Edo";
         const spots = locationsFor(state);
+        const savedArea = existing.neighborhood || "";
         setForm({
           title: existing.title,
           category: existing.category,
@@ -62,7 +64,8 @@ export default function ListingForm({ listingId }) {
           hasReceipt: Boolean(existing.hasReceipt),
           hasCarton: Boolean(existing.hasCarton),
           city: state,
-          neighborhood: spots.includes(existing.neighborhood) ? existing.neighborhood : spots[0] || "",
+          areaChoice: spots.includes(savedArea) ? savedArea : "Others",
+          neighborhood: savedArea,
           image: existing.image,
           description: existing.description
         });
@@ -75,11 +78,19 @@ export default function ListingForm({ listingId }) {
   }
 
   function setState(state) {
-    const spots = locationsFor(state);
     setForm((prev) => ({
       ...prev,
       city: state,
-      neighborhood: spots.includes(prev.neighborhood) ? prev.neighborhood : spots[0] || ""
+      areaChoice: "Others",
+      neighborhood: ""
+    }));
+  }
+
+  function setAreaChoice(choice) {
+    setForm((prev) => ({
+      ...prev,
+      areaChoice: choice,
+      neighborhood: choice === "Others" ? "" : choice
     }));
   }
 
@@ -115,12 +126,15 @@ export default function ListingForm({ listingId }) {
 
   async function onSubmit(e) {
     e.preventDefault();
+    const typed = String(form.neighborhood || "").trim();
+    const picked = form.areaChoice;
+    const neighborhood = typed || (picked !== "Others" ? picked : "");
     if (!form.title || !form.price || !form.description) {
       setError("Title, asking price and description are required.");
       return;
     }
-    if (!form.neighborhood) {
-      setError("Pick the area where the item is.");
+    if (!neighborhood) {
+      setError("Pick a key area or type your area / neighbourhood.");
       return;
     }
     if (!String(form.image || "").trim()) {
@@ -134,6 +148,7 @@ export default function ListingForm({ listingId }) {
       const id = await saveListing({
         id: listingId,
         ...form,
+        neighborhood,
         price: Number(form.price),
         image: form.image,
         status: existing?.status || "active"
@@ -166,10 +181,16 @@ export default function ListingForm({ listingId }) {
           {STATES.map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}
         </select>
       </div>
-      <select className="field" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)}>
-        <option value="">Key location</option>
+      <select className="field" value={form.areaChoice} onChange={(e) => setAreaChoice(e.target.value)}>
+        <option value="Others">Others</option>
         {areas.map((area) => <option key={area} value={area}>{area}</option>)}
       </select>
+      <input
+        className="field"
+        placeholder="Area / neighbourhood"
+        value={form.neighborhood}
+        onChange={(e) => set("neighborhood", e.target.value)}
+      />
       <label className="flex items-center gap-2 text-sm text-[#3b362f]">
         <input type="checkbox" checked={form.negotiable} onChange={(e) => set("negotiable", e.target.checked)} />
         Price is negotiable in chat
