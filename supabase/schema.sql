@@ -20,6 +20,8 @@ create table if not exists listings (
   condition text not null,
   price numeric not null,
   negotiable boolean not null default true,
+  has_receipt boolean not null default false,
+  has_carton boolean not null default false,
   city text not null,
   neighborhood text,
   description text,
@@ -81,9 +83,6 @@ alter table conversations enable row level security;
 alter table messages enable row level security;
 alter table reviews enable row level security;
 alter table reports enable row level security;
-
--- The Next.js server uses the service role key, which bypasses RLS.
--- No anon policies on purpose: browsers never talk to Postgres directly.
 
 insert into users (id, name, email, phone, city, password) values
   ('user-ada', 'Adaeze Okonkwo', 'ada@hearthly.demo', '+234 803 441 2290', 'Lagos', 'demo1234'),

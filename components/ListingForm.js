@@ -11,6 +11,8 @@ const EMPTY = {
   condition: "excellent",
   price: "",
   negotiable: true,
+  hasReceipt: false,
+  hasCarton: false,
   city: "Lagos",
   neighborhood: "",
   image: "",
@@ -53,6 +55,8 @@ export default function ListingForm({ listingId }) {
           condition: existing.condition,
           price: existing.price,
           negotiable: Boolean(existing.negotiable),
+          hasReceipt: Boolean(existing.hasReceipt),
+          hasCarton: Boolean(existing.hasCarton),
           city: existing.city,
           neighborhood: existing.neighborhood || "",
           image: existing.image,
@@ -185,6 +189,15 @@ export default function ListingForm({ listingId }) {
           </label>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-[#3b362f]">
+        <input type="checkbox" checked={form.hasReceipt} onChange={(e) => set("hasReceipt", e.target.checked)} />
+        Reciept dey?
+      </label>
+      <label className="flex items-center gap-2 text-sm text-[#3b362f]">
+        <input type="checkbox" checked={form.hasCarton} onChange={(e) => set("hasCarton", e.target.checked)} />
+        Carton dey?
+      </label>
 
       <textarea className="field min-h-36" placeholder="Honest description: wear, what is included, and a public place you are happy to meet." value={form.description} onChange={(e) => set("description", e.target.value)} />
       {error && <p className="text-sm text-[#8f4126]">{error}</p>}
