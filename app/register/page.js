@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { STATES } from "@/lib/data";
+import { STATES, stateLabel } from "@/lib/data";
 import { registerUser } from "@/lib/store";
 
 export default function RegisterPage() {
@@ -48,7 +48,7 @@ export default function RegisterPage() {
         <input className="field" type="email" placeholder="Email" value={form.email} onChange={(e) => set("email", e.target.value)} />
         <input className="field" placeholder="Phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
         <select className="field" value={form.city} onChange={(e) => set("city", e.target.value)}>
-          {STATES.map((state) => <option key={state} value={state}>{state} State</option>)}
+          {STATES.map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}
         </select>
         <input className="field" type="password" placeholder="Password" value={form.password} onChange={(e) => set("password", e.target.value)} />
         {error && <p className="text-sm text-[#8f4126]">{error}</p>}

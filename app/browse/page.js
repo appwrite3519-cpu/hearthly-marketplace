@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ItemCard from "@/components/ItemCard";
-import { CATEGORIES, CONDITIONS, STATES } from "@/lib/data";
+import { CATEGORIES, CONDITIONS, STATES, stateLabel } from "@/lib/data";
 import { getListings } from "@/lib/store";
 
 function BrowseInner() {
@@ -58,7 +58,7 @@ function BrowseInner() {
         </select>
         <select className="field" value={city} onChange={(e) => setCity(e.target.value)}>
           <option value="all">All states</option>
-          {STATES.map((state) => <option key={state} value={state}>{state} State</option>)}
+          {STATES.map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}
         </select>
         <select className="field" value={condition} onChange={(e) => setCondition(e.target.value)}>
           <option value="all">Any condition</option>

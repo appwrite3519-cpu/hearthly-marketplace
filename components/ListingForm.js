@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORIES, CONDITIONS, STATES, locationsFor } from "@/lib/data";
+import { CATEGORIES, CONDITIONS, STATES, locationsFor, stateLabel } from "@/lib/data";
 import { getListing, getSession, saveListing, uploadListingPhoto } from "@/lib/store";
 
 const EMPTY = {
@@ -163,7 +163,7 @@ export default function ListingForm({ listingId }) {
         </select>
         <input className="field" type="number" min="0" placeholder="Asking price (NGN)" value={form.price} onChange={(e) => set("price", e.target.value)} />
         <select className="field" value={form.city} onChange={(e) => setState(e.target.value)}>
-          {STATES.map((state) => <option key={state} value={state}>{state} State</option>)}
+          {STATES.map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}
         </select>
       </div>
       <select className="field" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)}>
