@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { CATEGORIES, CITIES, CONDITIONS } from "@/lib/data";
+import { useEffect, useMemo, useState } from "react";
+import { CATEGORIES, CONDITIONS, STATES, locationsFor } from "@/lib/data";
 import { getListing, getSession, saveListing, uploadListingPhoto } from "@/lib/store";
 
 const EMPTY = {
@@ -13,8 +13,8 @@ const EMPTY = {
   negotiable: true,
   hasReceipt: false,
   hasCarton: false,
-  city: "Lagos",
-  neighborhood: "",
+  city: "Edo",
+  neighborhood: "1st Ugbor",
   image: "",
   description: ""
 };
@@ -36,6 +36,8 @@ export default function ListingForm({ listingId }) {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const areas = useMemo(() => locationsFor(form.city), [form.city]);
+
   useEffect(() => {
     const s = getSession();
     if (!s) {
@@ -49,6 +51,8 @@ export default function ListingForm({ listingId }) {
           router.replace("/dashboard");
           return;
         }
+        const state = STATES.includes(existing.city) ? existing.city : "Edo";
+        const spots = locationsFor(state);
         setForm({
           title: existing.title,
           category: existing.category,
@@ -57,8 +61,8 @@ export default function ListingForm({ listingId }) {
           negotiable: Boolean(existing.negotiable),
           hasReceipt: Boolean(existing.hasReceipt),
           hasCarton: Boolean(existing.hasCarton),
-          city: existing.city,
-          neighborhood: existing.neighborhood || "",
+          city: state,
+          neighborhood: spots.includes(existing.neighborhood) ? existing.neighborhood : spots[0] || "",
           image: existing.image,
           description: existing.description
         });
@@ -68,6 +72,15 @@ export default function ListingForm({ listingId }) {
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setState(state) {
+    const spots = locationsFor(state);
+    setForm((prev) => ({
+      ...prev,
+      city: state,
+      neighborhood: spots.includes(prev.neighborhood) ? prev.neighborhood : spots[0] || ""
+    }));
   }
 
   async function onPickPhoto(event) {
@@ -104,6 +117,10 @@ export default function ListingForm({ listingId }) {
     e.preventDefault();
     if (!form.title || !form.price || !form.description) {
       setError("Title, asking price and description are required.");
+      return;
+    }
+    if (!form.neighborhood) {
+      setError("Pick the area where the item is.");
       return;
     }
     if (!String(form.image || "").trim()) {
@@ -145,15 +162,18 @@ export default function ListingForm({ listingId }) {
           {CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input className="field" type="number" min="0" placeholder="Asking price (NGN)" value={form.price} onChange={(e) => set("price", e.target.value)} />
-        <select className="field" value={form.city} onChange={(e) => set("city", e.target.value)}>
-          {CITIES.map((c) => <option key={c}>{c}</option>)}
+        <select className="field" value={form.city} onChange={(e) => setState(e.target.value)}>
+          {STATES.map((state) => <option key={state} value={state}>{state} State</option>)}
         </select>
       </div>
+      <select className="field" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)}>
+        <option value="">Key location</option>
+        {areas.map((area) => <option key={area} value={area}>{area}</option>)}
+      </select>
       <label className="flex items-center gap-2 text-sm text-[#3b362f]">
         <input type="checkbox" checked={form.negotiable} onChange={(e) => set("negotiable", e.target.checked)} />
         Price is negotiable in chat
       </label>
-      <input className="field" placeholder="Area / neighbourhood" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
 
       <div className="rounded-2xl border border-[#ddd4c6] bg-[#fffdf8] p-4">
         <p className="text-sm font-medium">Item photo</p>
@@ -168,24 +188,11 @@ export default function ListingForm({ listingId }) {
         <div className="mt-3 flex flex-wrap gap-2">
           <label className="btn btn-dark cursor-pointer">
             {uploading ? "Uploading…" : "Choose from gallery"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={uploading || busy}
-              onChange={onPickPhoto}
-            />
+            <input type="file" accept="image/*" className="hidden" disabled={uploading || busy} onChange={onPickPhoto} />
           </label>
           <label className="btn btn-ghost cursor-pointer">
             Take photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              disabled={uploading || busy}
-              onChange={onPickPhoto}
-            />
+            <input type="file" accept="image/*" capture="environment" className="hidden" disabled={uploading || busy} onChange={onPickPhoto} />
           </label>
         </div>
       </div>
